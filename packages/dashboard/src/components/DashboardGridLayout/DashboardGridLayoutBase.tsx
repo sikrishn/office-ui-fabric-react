@@ -21,7 +21,6 @@ const ResponsiveReactGridLayout = WidthProvider(Responsive);
 
 export interface IDashboardGridLayoutBaseProps extends IDashboardGridLayoutProps {
   createRGLLayouts?(dashBoardLayout: DashboardGridBreakpointLayouts): Layouts;
-  onLayoutChange?(currentLayout: Layout[], allLayouts: Layouts): void;
 }
 
 export class DashboardGridLayoutBase extends React.Component<IDashboardGridLayoutBaseProps, IDashboardGridLayoutBaseState> {
@@ -59,8 +58,21 @@ export class DashboardGridLayoutBase extends React.Component<IDashboardGridLayou
     if (!nextProps) {
       return;
     }
-    const layouts = this._createLayout(nextProps.layout);
-    this._updateStateWithCompactedLayout(layouts);
+
+    // apply the changed layout to RGL first before compaction to update the internal state of RGL to honor compaction
+    let layouts = this._createLayout(nextProps.layout);
+    this.setState({
+      layouts: layouts
+    });
+
+    // apply the compacted layout to RGL
+    setTimeout(() => {
+      layouts = this._createLayout(nextProps.layout);
+      const compactedLayouts = this._getCompactedLayouts(layouts);
+      this.setState({
+        layouts: compactedLayouts
+      });
+    }, 0);
   }
 
   public render(): JSX.Element {
@@ -88,23 +100,11 @@ export class DashboardGridLayoutBase extends React.Component<IDashboardGridLayou
           dragApiRef={this.props.dragApi}
           onWidthChange={this.props.onWidthChange}
           {...this.props}
-          onLayoutChange={this._onLayoutChanged}
         >
           {this.props.children}
         </ResponsiveReactGridLayout>
       </div>
     );
-  }
-
-  private _updateStateWithCompactedLayout(layouts?: Layouts): void {
-    if (!layouts) {
-      return;
-    }
-
-    const compactedLayouts = this._getCompactedLayouts(layouts);
-    this.setState({
-      layouts: compactedLayouts
-    });
   }
 
   private _getCompactedLayouts(layouts: Layouts): Layouts | undefined {
@@ -116,20 +116,6 @@ export class DashboardGridLayoutBase extends React.Component<IDashboardGridLayou
       lg: layouts.lg ? compactHorizontally(layouts.lg, this.props.cols!.lg) : undefined
     } as Layouts;
   }
-
-  private _onLayoutChanged = (currentLayout: Layout[], allLayouts: Layouts) => {
-    if (this.state.layouts) {
-      // todo: support other breakpoints
-      const layouts: Layouts = {
-        lg: this.state.layouts.lg ? currentLayout : undefined
-      };
-      this._updateStateWithCompactedLayout(layouts);
-    }
-
-    if (this.props.onLayoutChange) {
-      this.props.onLayoutChange(currentLayout, allLayouts);
-    }
-  };
 
   private _createLayoutFromProp(layoutProp: IDashboardCardLayout): Layout {
     return {
